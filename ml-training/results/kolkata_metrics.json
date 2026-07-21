@@ -1,0 +1,24 @@
+{
+  "city": "Kolkata",
+  "state": "West Bengal",
+  "n_windows_total": 2806,
+  "n_train": 1964,
+  "n_val": 421,
+  "n_test": 421,
+  "test_date_range": [
+    "2023-06-06",
+    "2024-09-22"
+  ],
+  "epochs_run": 22,
+  "train_seconds": 18.6,
+  "next_day": {
+    "mae_mw": 3.668,
+    "rmse_mw": 4.42,
+    "mape_pct": 10.685
+  },
+  "next_week": {
+    "mae_mw": 4.793,
+    "rmse_mw": 5.909,
+    "mape_pct": 13.894
+  }
+}

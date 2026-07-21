@@ -1,0 +1,9 @@
+city,n_qubits,zero_capacity_sources,anchor_mw,next_day_forecast_mw,targets_were_deltas,qaoa_coal_mw,qaoa_hydro_mw,qaoa_wind_mw,qaoa_solar_mw,qaoa_battery_charge_mw,qaoa_battery_discharge_mw,qaoa_mismatch_mw,qaoa_battery_conflict,classical_coal_mw,classical_hydro_mw,classical_wind_mw,classical_solar_mw,classical_battery_charge_mw,classical_battery_discharge_mw,classical_mismatch_mw,classical_battery_conflict,classical_method,objective_gap,optimization_score,matched_optimum
+Delhi,20,wind,222.23,234.95,False,0.0,0.0,0.0,105.5,0.0,133.33,3.88,False,0.0,0.0,0.0,105.5,0.0,133.33,3.88,False,exact_brute_force,5.820766091346741e-11,100.0,True
+Mumbai,20,none,89.21,89.99,False,0.0,0.0,230.86,0.0,200.0,66.67,7.54,True,0.0,292.1,0.0,0.0,200.0,0.0,2.11,False,exact_brute_force,252.94708955840906,99.38,False
+Pune,20,none,31.89,32.41,False,0.0,0.0,165.06,0.0,200.0,66.67,-0.68,True,0.0,0.0,165.06,0.0,133.33,0.0,-0.68,False,exact_brute_force,29.999999999970896,99.43,False
+Bangalore,20,none,48.97,50.8,False,0.0,0.0,0.0,0.0,66.67,133.33,15.87,True,0.0,0.0,0.0,0.0,0.0,66.67,15.87,False,exact_brute_force,15.0,99.88,False
+Hyderabad,20,none,77.51,70.41,False,0.0,0.0,0.0,0.0,0.0,66.67,-3.74,False,0.0,0.0,0.0,0.0,0.0,66.67,-3.74,False,exact_brute_force,0.0,100.0,True
+Chennai,20,none,57.12,54.38,False,0.0,0.0,0.0,0.0,66.67,133.33,12.29,True,0.0,0.0,0.0,0.0,0.0,66.67,12.29,False,exact_brute_force,15.0,99.9,False
+Kolkata,20,wind,33.73,31.43,False,0.0,207.62,0.0,26.47,200.0,0.0,2.66,False,0.0,207.62,0.0,26.47,200.0,0.0,2.66,False,exact_brute_force,4.3655745685100555e-11,100.0,True
+Ahmedabad,20,none,52.66,52.69,False,0.0,0.0,0.0,249.47,200.0,0.0,-3.22,False,0.0,0.0,0.0,249.47,200.0,0.0,-3.22,False,exact_brute_force,2.9103830456733704e-11,100.0,True

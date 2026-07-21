@@ -1,0 +1,24 @@
+{
+  "city": "Delhi",
+  "state": "Delhi",
+  "n_windows_total": 2806,
+  "n_train": 1964,
+  "n_val": 421,
+  "n_test": 421,
+  "test_date_range": [
+    "2023-06-06",
+    "2024-09-22"
+  ],
+  "epochs_run": 31,
+  "train_seconds": 44.1,
+  "next_day": {
+    "mae_mw": 15.079,
+    "rmse_mw": 20.095,
+    "mape_pct": 6.601
+  },
+  "next_week": {
+    "mae_mw": 21.923,
+    "rmse_mw": 28.789,
+    "mape_pct": 9.621
+  }
+}

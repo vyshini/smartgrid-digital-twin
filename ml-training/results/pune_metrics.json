@@ -1,0 +1,24 @@
+{
+  "city": "Pune",
+  "state": "Maharashtra",
+  "n_windows_total": 2806,
+  "n_train": 1964,
+  "n_val": 421,
+  "n_test": 421,
+  "test_date_range": [
+    "2023-06-06",
+    "2024-09-22"
+  ],
+  "epochs_run": 22,
+  "train_seconds": 33.2,
+  "next_day": {
+    "mae_mw": 2.265,
+    "rmse_mw": 2.54,
+    "mape_pct": 6.084
+  },
+  "next_week": {
+    "mae_mw": 3.087,
+    "rmse_mw": 3.497,
+    "mape_pct": 8.245
+  }
+}

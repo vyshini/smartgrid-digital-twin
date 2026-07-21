@@ -1,0 +1,27 @@
+{
+  "city": "Kolkata",
+  "state": "West Bengal",
+  "version": "20260718-052701",
+  "n_windows_total": 2806,
+  "n_train": 1964,
+  "n_val": 421,
+  "n_test": 421,
+  "test_date_range": [
+    "2023-06-06",
+    "2024-09-22"
+  ],
+  "epochs_run": 3,
+  "train_seconds": 6.8,
+  "next_day": {
+    "mae_mw": 3.806,
+    "rmse_mw": 4.776,
+    "mape_pct": 10.922
+  },
+  "next_week": {
+    "mae_mw": 4.493,
+    "rmse_mw": 5.692,
+    "mape_pct": 12.891
+  },
+  "promoted": true,
+  "promotion_reason": "force_promote=True (manual override)"
+}
