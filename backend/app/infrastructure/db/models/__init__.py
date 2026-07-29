@@ -7,6 +7,7 @@ Phase 3/4/6 as those layers are built; the SQL DDL in docs/database-schema.sql
 already defines their final shape.
 """
 from app.infrastructure.db.models.city import City, GridNode, TransmissionLine  # noqa: F401
+from app.infrastructure.db.models.optimization import OptimizationHistory  # noqa: F401
 from app.infrastructure.db.models.timeseries import (  # noqa: F401
     BatteryStorage,
     LoadDemand,
