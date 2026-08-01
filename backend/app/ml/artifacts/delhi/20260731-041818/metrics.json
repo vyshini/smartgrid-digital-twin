@@ -1,0 +1,27 @@
+{
+  "city": "Delhi",
+  "state": "Delhi",
+  "version": "20260731-041818",
+  "n_windows_total": 2806,
+  "n_train": 1964,
+  "n_val": 421,
+  "n_test": 421,
+  "test_date_range": [
+    "2023-06-06",
+    "2024-09-22"
+  ],
+  "epochs_run": 31,
+  "train_seconds": 52.0,
+  "next_day": {
+    "mae_mw": 628.293,
+    "rmse_mw": 837.295,
+    "mape_pct": 6.601
+  },
+  "next_week": {
+    "mae_mw": 913.491,
+    "rmse_mw": 1199.588,
+    "mape_pct": 9.622
+  },
+  "promoted": true,
+  "promotion_reason": "force_promote=True (manual override)"
+}

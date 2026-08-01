@@ -1,0 +1,27 @@
+{
+  "city": "Pune",
+  "state": "Maharashtra",
+  "version": "20260731-041947",
+  "n_windows_total": 2806,
+  "n_train": 1964,
+  "n_val": 421,
+  "n_test": 421,
+  "test_date_range": [
+    "2023-06-06",
+    "2024-09-22"
+  ],
+  "epochs_run": 22,
+  "train_seconds": 38.9,
+  "next_day": {
+    "mae_mw": 94.465,
+    "rmse_mw": 106.171,
+    "mape_pct": 6.086
+  },
+  "next_week": {
+    "mae_mw": 124.442,
+    "rmse_mw": 141.175,
+    "mape_pct": 7.98
+  },
+  "promoted": true,
+  "promotion_reason": "force_promote=True (manual override)"
+}

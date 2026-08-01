@@ -10,15 +10,15 @@
     "2024-09-22"
   ],
   "epochs_run": 22,
-  "train_seconds": 18.6,
+  "train_seconds": 56.9,
   "next_day": {
-    "mae_mw": 3.668,
-    "rmse_mw": 4.42,
+    "mae_mw": 152.828,
+    "rmse_mw": 184.162,
     "mape_pct": 10.685
   },
   "next_week": {
-    "mae_mw": 4.793,
-    "rmse_mw": 5.909,
+    "mae_mw": 199.722,
+    "rmse_mw": 246.22,
     "mape_pct": 13.894
   }
 }

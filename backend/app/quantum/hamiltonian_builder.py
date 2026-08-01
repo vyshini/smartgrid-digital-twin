@@ -52,8 +52,21 @@ import numpy as np
 from app.quantum.generation_capacity import GenerationCapacity
 
 SOURCES = ("coal", "hydro", "wind", "solar")
-N_BLOCKS = 4  # per source — matches project decision: ~18-20 total qubits
+N_BLOCKS = 1  # per source — validated local config. Reduced from an original
+# N_BLOCKS=4 design (20 qubits total) for local StatevectorSampler
+# feasibility. Empirically: 8 qubits (N_BLOCKS=1, no import) ran in
+# ~15-18s; adding 2 qubits for the import variable (10 qubits total) grew
+# runtime to ~140-235s under identical QAOA settings — a ~10x increase for
+# a 2-qubit addition, consistent with state-vector simulation's exponential
+# scaling. N_BLOCKS=2 (14 qubits) was evaluated as impractical for local
+# iterative testing on this basis; restoring full granularity (N_BLOCKS=4,
+# the original design) is left as a target configuration for dedicated
+# hardware (e.g. IBM Quantum Cloud's free tier) rather than local
+# simulation. This is a genuine scalability limitation of the local-testing
+# setup, not a limitation of the QAOA formulation itself.
 N_BATTERY_BITS = 2  # charge and discharge each get this many bits
+N_IMPORT_BITS = 2   # grid-interconnect import, same binary-weighted encoding as battery
+
 
 # Illustrative relative cost weights (dimensionless, NOT Rs/kWh) reflecting
 # India's real renewable-must-run dispatch priority policy: renewables are
@@ -64,7 +77,9 @@ RELATIVE_COST_WEIGHT = {
     "solar": 0.10,
     "wind": 0.15,
     "hydro": 0.25,
+    "import": 0.60,
     "coal": 1.00,
+    
 }
 
 
@@ -76,6 +91,7 @@ class DispatchProblem:
     capacity: GenerationCapacity
     target_demand_mw: float
     battery_power_rating_mw: float
+    import_capacity_mw: float | None = None
     demand_penalty_weight: float = 5.0
     battery_conflict_penalty_weight: float = 3.0
 
@@ -84,6 +100,12 @@ class DispatchProblem:
     n_qubits: int = field(default=0, init=False)
 
     def __post_init__(self):
+        if self.import_capacity_mw is None:
+            # Grid interconnect can, in principle, cover the full forecasted
+            # demand — matches the real-world observation (see Delhi's test
+            # results) that this city relies heavily on inter-state import
+            # rather than local generation alone.
+            self.import_capacity_mw = self.target_demand_mw
         self.var_index = self._build_variable_index()
         self.n_qubits = len(self.var_index)
 
@@ -103,6 +125,9 @@ class DispatchProblem:
         for k in range(N_BATTERY_BITS):
             idx[("battery_discharge", k)] = i
             i += 1
+        for k in range(N_IMPORT_BITS):          # NEW
+            idx[("import", k)] = i                # NEW
+            i += 1  
         return idx
 
     def block_size_mw(self, source: str) -> float:
@@ -116,6 +141,11 @@ class DispatchProblem:
         step = self.battery_power_rating_mw / (2 ** N_BATTERY_BITS - 1)
         return step * (2 ** bit_position)
 
+    def import_bit_mw(self, bit_position: int) -> float:
+        """Same binary-weighted scheme as battery_bit_mw, scaled to
+        import_capacity_mw instead of battery_power_rating_mw."""
+        step = self.import_capacity_mw / (2 ** N_IMPORT_BITS - 1)
+        return step * (2 ** bit_position)
 
 def build_qubo(problem: DispatchProblem) -> np.ndarray:
     """
@@ -134,6 +164,12 @@ def build_qubo(problem: DispatchProblem) -> np.ndarray:
         for k in range(N_BLOCKS):
             Q[idx[("gen", s, k)], idx[("gen", s, k)]] += cost
 
+
+         # --- Import cost (linear, diagonal) — same illustrative-weight pattern
+    for k in range(N_IMPORT_BITS):                                          # NEW
+        cost = RELATIVE_COST_WEIGHT["import"] * problem.import_bit_mw(k)    # NEW
+        Q[idx[("import", k)], idx[("import", k)]] += cost     
+
     # --- 2. Demand-mismatch penalty: lambda * (supply - target_demand)^2 ---
     # supply = sum(gen blocks) + sum(discharge bits) - sum(charge bits)
     # Build a linear "coefficient vector" w such that supply = w . x, then
@@ -149,6 +185,8 @@ def build_qubo(problem: DispatchProblem) -> np.ndarray:
     for k in range(N_BATTERY_BITS):
         w[idx[("battery_discharge", k)]] += problem.battery_bit_mw(k)
         w[idx[("battery_charge", k)]] -= problem.battery_bit_mw(k)
+    for k in range(N_IMPORT_BITS):                                    # NEW
+        w[idx[("import", k)]] += problem.import_bit_mw(k)    
 
     lam = problem.demand_penalty_weight
     D = problem.target_demand_mw
@@ -246,7 +284,13 @@ def decode_solution(problem: DispatchProblem, x: np.ndarray) -> dict:
     result["battery_charge_mw"] = round(charge_mw, 2)
     result["battery_discharge_mw"] = round(discharge_mw, 2)
 
-    total_supply = sum(result[f"{s}_mw"] for s in SOURCES) + discharge_mw - charge_mw
+    import_mw = sum(                                                       # NEW
+        int(x[idx[("import", k)]]) * problem.import_bit_mw(k)              # NEW
+        for k in range(N_IMPORT_BITS)                                      # NEW
+    )                                                                      # NEW
+    result["import_mw"] = round(import_mw, 2) 
+
+    total_supply = sum(result[f"{s}_mw"] for s in SOURCES) + discharge_mw - charge_mw + import_mw
     result["total_supply_mw"] = round(total_supply, 2)
     result["target_demand_mw"] = round(problem.target_demand_mw, 2)
     result["mismatch_mw"] = round(total_supply - problem.target_demand_mw, 2)

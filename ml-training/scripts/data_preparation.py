@@ -121,6 +121,18 @@ DEMAND_CSV_NON_STATE_COLUMNS = ["Unnamed: 0", "DVC", "Essar steel"]
 # Rows in the generation-mix CSV that are not real states/UTs.
 GENERATION_CSV_NON_STATE_ROWS = ["Bhutan", "Grand Total"]
 
+# Conversion factor — the raw CSV column is real POSOCO daily ENERGY
+# consumption in MU (Million Units = GWh), not instantaneous MW power,
+# despite this project's schema calling it `total_demand_mw` downstream.
+# Confirmed against Delhi's real Jan-2013 values (~129-132 MU/day matches
+# published daily consumption figures for that period exactly) — left
+# unconverted, this would put Delhi's average demand at ~130 MW, which is
+# physically implausible for a city whose real average demand is in the
+# thousands of MW.
+#   1 MU = 1,000 MWh  (1,000,000 kWh / 1,000 kWh-per-MWh)
+#   average_MW = (MU_per_day * 1,000 MWh) / 24 hours
+
+MU_PER_DAY_TO_AVG_MW = 1000 / 24  # ≈ 41.667
 
 # ---------------------------------------------------------------------------
 # Loaders
@@ -129,7 +141,9 @@ GENERATION_CSV_NON_STATE_ROWS = ["Bhutan", "Grand Total"]
 def load_daily_demand(path: str) -> pd.DataFrame:
     """
     Loads the real POSOCO-sourced daily state-wise consumption CSV.
-    Returns a DataFrame indexed by date, columns = our 7 target states only.
+    Returns a DataFrame indexed by date, columns = our 7 target states only,
+    converted from MU/day (energy) to average MW (power) — see
+    MU_PER_DAY_TO_AVG_MW's docstring for why this conversion exists.
     Call report_coverage() on the result before training — do not assume
     the date range is gap-free.
     """
@@ -145,8 +159,9 @@ def load_daily_demand(path: str) -> pd.DataFrame:
             f"Expected state columns not found in demand CSV: {missing}. "
             f"Available columns: {df.columns.tolist()}"
         )
-    return df[target_states]
 
+    demand_mu = df[target_states]
+    return demand_mu * MU_PER_DAY_TO_AVG_MW
 
 def report_coverage(df: pd.DataFrame) -> dict:
     """

@@ -1,6 +1,6 @@
 """Use-case: authenticate a user and issue access + refresh tokens."""
 import hashlib
-
+import uuid
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -49,7 +49,7 @@ class RefreshTokenUseCase:
         if stored is None:
             raise InvalidCredentialsError("Refresh token is invalid, expired, or already revoked")
 
-        user = await self._users.get_by_id(payload["sub"])
+        user = await self._users.get_by_id(uuid.UUID(payload["sub"])) 
         if user is None or not user.is_active:
             raise InactiveUserError("This account is no longer active")
 

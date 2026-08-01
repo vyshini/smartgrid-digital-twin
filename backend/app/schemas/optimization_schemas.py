@@ -1,16 +1,24 @@
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
 
 class OptimizationRunRequest(BaseModel):
-    target_demand_mw: float = Field(
+    target_demand_mw: float | None = Field(
+        default=None,
         gt=0,
         description=(
-            "Target demand to dispatch against. TEMPORARY: until a real "
-            "Forecaster/ML layer is wired into this backend (Phase 3's "
-            "trained models currently only exist as files in ml-training/), "
-            "this must be supplied by the caller rather than fetched automatically."
+            "Target demand to dispatch against. If omitted, this is fetched "
+            "automatically from the next-day LSTM forecast for this city."
+        ),
+    )
+    forecast_as_of_date: date | None = Field(
+        default=None,
+        description=(
+            "Only used when target_demand_mw is omitted. Most recent real data "
+            "date to condition the forecast on. The static dataset currently ends "
+            "2024-09-29 — omitting this defaults to 'yesterday' (today's real "
+            "date) and WILL fail until a live ingestion pipeline exists."
         ),
     )
     battery_power_rating_mw: float = Field(default=200.0, gt=0)
@@ -26,6 +34,7 @@ class DispatchAllocation(BaseModel):
     hydro_mw: float
     wind_mw: float
     solar_mw: float
+    import_mw: float 
     battery_charge_mw: float
     battery_discharge_mw: float
     total_supply_mw: float
@@ -37,6 +46,7 @@ class DispatchAllocation(BaseModel):
 class OptimizationResultOut(BaseModel):
     id: int
     city_id: int
+    forecast_id: int | None
     algorithm: str
     run_at: datetime
     iterations: int
