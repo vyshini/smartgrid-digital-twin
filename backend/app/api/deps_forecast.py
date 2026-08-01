@@ -63,3 +63,10 @@ def get_forecast_use_case() -> ForecastCityLoadUseCase:
     """FastAPI dependency — use with `Depends(get_forecast_use_case)` in
     api/v1/forecast.py."""
     return ForecastCityLoadUseCase(forecaster=get_forecaster())
+
+@lru_cache(maxsize=1)
+def get_data_provider() -> CSVForecastDataProvider:
+    """Public accessor for the shared CSV-backed feature provider — used
+    directly by simulation scenarios, which need the raw feature
+    DataFrame (to perturb) rather than a finished ForecastResult."""
+    return _build_data_provider()

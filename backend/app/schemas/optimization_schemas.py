@@ -30,17 +30,19 @@ class OptimizationJobAccepted(BaseModel):
 
 
 class DispatchAllocation(BaseModel):
-    coal_mw: float
-    hydro_mw: float
-    wind_mw: float
-    solar_mw: float
-    import_mw: float 
-    battery_charge_mw: float
-    battery_discharge_mw: float
-    total_supply_mw: float
-    target_demand_mw: float
-    mismatch_mw: float
-    battery_conflict: bool
+    coal_mw: float = 0.0
+    hydro_mw: float = 0.0
+    wind_mw: float = 0.0
+    solar_mw: float = 0.0
+    import_mw: float = 0.0
+    battery_charge_mw: float = 0.0
+    battery_discharge_mw: float = 0.0
+    total_supply_mw: float = 0.0
+    target_demand_mw: float = 0.0
+    mismatch_mw: float = 0.0
+    battery_conflict: bool = False
+
+    model_config = {"extra": "ignore"}
 
 
 class OptimizationResultOut(BaseModel):
@@ -51,6 +53,9 @@ class OptimizationResultOut(BaseModel):
     run_at: datetime
     iterations: int
     optimization_score: float
+    cost_reduction_pct: float | None       # NEW
+    power_loss_reduction_pct: float | None  # NEW
+    grid_stability_score: float | None
     quantum_circuit_depth: int | None
     execution_time_ms: int
     objective_gap: float
@@ -74,3 +79,11 @@ class OptimizationExplanation(BaseModel):
     matched_classical_optimum: bool
     renewable_dispatched_mw: float
     battery_action: str
+    expected_savings: str          # NEW
+    risk_level: str 
+    
+class GenerationScenarioJobStatus(BaseModel):
+    job_id: str
+    status: str  # "running" | "completed" | "failed"
+    result: dict | None = None
+    error: str | None = None

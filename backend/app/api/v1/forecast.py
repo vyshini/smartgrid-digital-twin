@@ -35,6 +35,9 @@ from app.schemas.forecast_schemas import (
     ForecastResponseSchema,
     LossCurvePointSchema,
 )
+from app.api.deps import get_session
+from app.infrastructure.repositories.forecast_repository import ForecastRepository
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from pathlib import Path
 
@@ -43,28 +46,17 @@ from app.core.config import get_settings
 router = APIRouter()
 
 
-@router.get(
-    "/{city}/{horizon}",
-    response_model=ForecastResponseSchema,
-    summary="Predict a city's load for the given horizon.",
-)
-def predict_city_load(
+@router.get("/{city}/{horizon}", response_model=ForecastResponseSchema, summary="Predict a city's load for the given horizon.")
+async def predict_city_load(
     city: str,
     horizon: ForecastHorizonSchema,
-    as_of_date: date | None = Query(
-        None,
-        description="Most recent real data date to condition the forecast on. "
-        "Defaults to yesterday (today's data is assumed incomplete).",
-    ),
+    as_of_date: date | None = Query(None, description="..."),
     use_case: ForecastCityLoadUseCase = Depends(get_forecast_use_case),
+    session: AsyncSession = Depends(get_session),  # NEW
 ) -> ForecastResponseSchema:
     try:
         result = use_case.execute(
-            ForecastCityLoadInput(
-                city=city,
-                horizon=ForecastHorizon(horizon.value),
-                as_of_date=as_of_date,
-            )
+            ForecastCityLoadInput(city=city, horizon=ForecastHorizon(horizon.value), as_of_date=as_of_date)
         )
     except UnknownCityError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -72,6 +64,23 @@ def predict_city_load(
         raise HTTPException(status_code=404, detail=str(e)) from e
     except InsufficientForecastHistoryError as e:
         raise HTTPException(status_code=422, detail=str(e)) from e
+
+    # NEW — persist so the dashboard reflects plain forecast calls too,
+    # not only forecasts made as a side-effect of an optimization run.
+    from app.infrastructure.repositories.city_repository import CityRepository
+    city_repo = CityRepository(session)
+    city_record = await city_repo.get_by_name(result.city)
+    if city_record is not None:
+        forecast_repo = ForecastRepository(session)
+        await forecast_repo.create(
+            city_id=city_record.id,
+            horizon=result.horizon.value,
+            as_of_date=result.as_of_date,
+            target_date=result.target_date,
+            predicted_mw=result.predicted_mw,
+            model_version=result.model_version,
+        )
+        await session.commit()
 
     return ForecastResponseSchema(
         city=result.city,

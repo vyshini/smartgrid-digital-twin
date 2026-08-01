@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
-from app.api.v1 import auth, cities, forecast,optimization
+from app.api.v1 import auth, cities, forecast,optimization,simulation,dashboard,weather
 from app.api.v1 import forecast as forecast_router
 
 settings = get_settings()
@@ -44,6 +44,10 @@ def create_app() -> FastAPI:
     app.include_router(forecast.router, prefix=f"{settings.API_V1_PREFIX}/forecast", tags=["forecast"])
     app.include_router(forecast_router.router, prefix="/api/v1/forecast", tags=["forecast"])
     app.include_router(optimization.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(simulation.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(dashboard.router, prefix=settings.API_V1_PREFIX)
+    app.include_router(weather.router, prefix=settings.API_V1_PREFIX)
+    
     @app.get("/health", tags=["health"])
     async def health_check() -> dict[str, str]:
         return {"status": "ok", "environment": settings.ENVIRONMENT}

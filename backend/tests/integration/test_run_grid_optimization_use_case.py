@@ -201,7 +201,23 @@ async def test_persist_result_threads_forecast_id_through():
         optimizer=None,
     )
     fake_raw_result = {
-        "qaoa": {"cobyla_iterations": 5, "reps": 1, "decoded": {"coal_mw": 0}},
+        "qaoa": {
+            "cobyla_iterations": 5,
+            "reps": 1,
+            "decoded": {
+                "coal_mw": 0,
+                "hydro_mw": 59,
+                "wind_mw": 0,
+                "solar_mw": 211,
+                "import_mw": 0,
+                "battery_charge_mw": 0,
+                "battery_discharge_mw": 0,
+                "total_supply_mw": 270,
+                "target_demand_mw": 270,
+                "mismatch_mw": 0,
+                "battery_conflict": False,
+            },
+        },
         "optimization_score": 100.0,
         "objective_gap": 0.0,
         "qaoa_matches_classical_optimum": True,

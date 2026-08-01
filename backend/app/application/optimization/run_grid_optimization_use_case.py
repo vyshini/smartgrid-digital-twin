@@ -40,6 +40,11 @@ if TYPE_CHECKING:
     from app.infrastructure.repositories.forecast_repository import ForecastRepository
     from app.infrastructure.repositories.optimization_repository import OptimizationRepository
 
+from app.quantum.grid_metrics import (
+    compute_cost_reduction_pct,
+    compute_grid_stability_score,
+    compute_power_loss_reduction_pct,
+)
 
 class ForecastRequiredButUnavailableError(DomainError):
     """Raised when target_demand_mw is omitted but no Forecaster was
@@ -162,6 +167,8 @@ class RunGridOptimizationUseCase:
         execution_time_ms: int,
         forecast_id: int | None = None,
     ) -> "OptimizationHistory":
+        decoded = raw_result["qaoa"]["decoded"]
+
         record = await self._optimizations.create(
             city_id=city_id,
             forecast_id=forecast_id,
@@ -171,8 +178,11 @@ class RunGridOptimizationUseCase:
             optimization_score=raw_result["optimization_score"],
             quantum_circuit_depth=raw_result["qaoa"]["reps"],
             execution_time_ms=execution_time_ms,
-            allocation_result=raw_result["qaoa"]["decoded"],
+            allocation_result=decoded,
             objective_gap=raw_result["objective_gap"],
             matched_classical_optimum=raw_result["qaoa_matches_classical_optimum"],
+            cost_reduction_pct=compute_cost_reduction_pct(decoded),          # NEW
+            power_loss_reduction_pct=compute_power_loss_reduction_pct(decoded),  # NEW
+            grid_stability_score=compute_grid_stability_score(decoded),      # NEW
         )
         return record
