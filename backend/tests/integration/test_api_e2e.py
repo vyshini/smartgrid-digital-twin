@@ -136,3 +136,44 @@ async def test_list_cities_with_valid_token_returns_seeded_city(client):
     assert resp.status_code == 200
     names = [c["name"] for c in resp.json()]
     assert "Delhi" in names
+
+
+async def test_reports_endpoints_require_auth(client):
+    resp = await client.get("/api/v1/reports/national")
+    assert resp.status_code == 401
+
+
+async def test_reports_national_and_forecast_csv_with_valid_token(client):
+    from app.core.security import hash_password
+    from app.infrastructure.db.models.enums import UserRole
+    from app.infrastructure.db.models.user import User as UserModel
+
+    override = app.dependency_overrides[get_session]
+    async for session in override():
+        session.add(
+            UserModel(
+                username="reports_reader",
+                email="reports_reader@example.in",
+                password_hash=hash_password("readpass1"),
+                full_name="Reports Reader",
+                role=UserRole.RESEARCHER,
+            )
+        )
+        await session.commit()
+        break
+
+    login_resp = await client.post(
+        "/api/v1/auth/login", json={"username": "reports_reader", "password": "readpass1"}
+    )
+    assert login_resp.status_code == 200
+    access_token = login_resp.json()["access_token"]
+    auth = {"Authorization": f"Bearer {access_token}"}
+
+    national_resp = await client.get("/api/v1/reports/national", headers=auth)
+    assert national_resp.status_code == 200
+    assert national_resp.json()["report_type"] == "national"
+    assert national_resp.json()["total_cities"] >= 1
+
+    csv_resp = await client.get("/api/v1/reports/forecast/1?format=csv", headers=auth)
+    assert csv_resp.status_code == 200
+    assert csv_resp.headers["content-type"].startswith("text/csv")

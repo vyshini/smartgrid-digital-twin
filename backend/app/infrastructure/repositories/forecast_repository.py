@@ -24,3 +24,12 @@ class ForecastRepository:
             .limit(1)
         )
         return result.scalar_one_or_none()
+
+    async def get_history_for_city(self, city_id: int, limit: int = 200) -> list[ForecastHistory]:
+        result = await self._session.execute(
+            select(ForecastHistory)
+            .where(ForecastHistory.city_id == city_id)
+            .order_by(ForecastHistory.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())

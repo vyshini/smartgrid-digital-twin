@@ -92,7 +92,13 @@ asyncio.run(main())
 - `forecast_history`, `ml_models` tables/endpoints → Phase 3 (LSTM)
 - `optimization_history` table/endpoints → Phase 4 (QAOA)
 - `simulation_scenarios`, `simulation_history`, WebSocket tick stream → Phase 4/5
-- `alerts`, `reports` endpoints → Phase 6 wiring
+- `alerts` endpoints → Phase 6 wiring
+- `/reports` API now available for JSON/CSV exports:
+  - `/api/v1/reports/national`
+  - `/api/v1/reports/city/{city_id}`
+  - `/api/v1/reports/forecast/{city_id}`
+  - `/api/v1/reports/optimization/{city_id}`
+  - (PDF/Excel rendering is still pending)
 - Dashboard `/overview` endpoint is intentionally NOT built yet — it needs
   forecast + optimization scores that don't exist until Phase 3/4, and a
   placeholder would violate the "no placeholder code" requirement.
