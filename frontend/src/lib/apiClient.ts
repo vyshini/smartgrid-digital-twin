@@ -118,6 +118,13 @@ export const apiClient = {
     });
     return response.data;
   },
+
+  async getLatestAvailableDate(city: string) {
+  const response = await api.get<{ city: string; latest_available_date: string }>(
+    `/forecast/${city}/latest-available-date`,
+  );
+  return response.data;
+},
   async getLossCurve(city: string) {
     const response = await api.get<LossCurvePoint[]>(`/forecast/${city}/loss-curve`);
     return response.data;

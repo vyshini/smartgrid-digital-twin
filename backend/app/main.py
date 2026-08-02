@@ -10,7 +10,7 @@ from app.core.config import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.api.v1 import auth, cities, forecast,optimization,simulation,dashboard,weather,reports
-from app.api.v1 import forecast as forecast_router
+
 
 settings = get_settings()
 configure_logging(debug=settings.DEBUG)
@@ -42,7 +42,6 @@ def create_app() -> FastAPI:
     app.include_router(auth.router, prefix=settings.API_V1_PREFIX)
     app.include_router(cities.router, prefix=settings.API_V1_PREFIX)
     app.include_router(forecast.router, prefix=f"{settings.API_V1_PREFIX}/forecast", tags=["forecast"])
-    app.include_router(forecast_router.router, prefix="/api/v1/forecast", tags=["forecast"])
     app.include_router(optimization.router, prefix=settings.API_V1_PREFIX)
     app.include_router(simulation.router, prefix=settings.API_V1_PREFIX)
     app.include_router(dashboard.router, prefix=settings.API_V1_PREFIX)

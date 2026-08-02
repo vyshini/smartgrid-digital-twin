@@ -11,7 +11,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { useMemo, useState } from 'react';
+import {useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Line, LineChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import type { Horizon } from '../core/types';
@@ -23,6 +23,17 @@ export function ForecastPage() {
   const [horizon, setHorizon] = useState<Horizon>('next_day');
   const [asOfDate, setAsOfDate] = useState('');
   const [trigger, setTrigger] = useState(0);
+
+  const latestDateQuery = useQuery({
+  queryKey: ['forecast', 'latest-date', city],
+  queryFn: () => apiClient.getLatestAvailableDate(city),
+  });
+
+  useEffect(() => {
+  if (latestDateQuery.data?.latest_available_date) {
+    setAsOfDate(latestDateQuery.data.latest_available_date);
+    }
+  }, [latestDateQuery.data]);
 
   const forecastQuery = useQuery({
     queryKey: ['forecast', city, horizon, asOfDate, trigger],

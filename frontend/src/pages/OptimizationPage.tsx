@@ -23,6 +23,8 @@ export function OptimizationPage() {
   const [targetDemand, setTargetDemand] = useState('');
   const [forecastDate, setForecastDate] = useState('');
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+ 
+
   const queryClient = useQueryClient();
   const { enqueueSnackbar } = useSnackbar();
 
@@ -32,6 +34,24 @@ export function OptimizationPage() {
     queryFn: () => apiClient.getLatestOptimization(cityId),
     retry: false,
   });
+
+  const selectedCityName = useMemo(
+    () => citiesQuery.data?.find((c) => c.id === cityId)?.name,
+    [citiesQuery.data, cityId],
+  );
+
+  const latestDateQuery = useQuery({
+    queryKey: ['optimization', 'latest-date', selectedCityName],
+    queryFn: () => apiClient.getLatestAvailableDate(selectedCityName as string),
+    enabled: Boolean(selectedCityName),
+  });
+
+  useEffect(() => {
+    if (latestDateQuery.data?.latest_available_date) {
+      setForecastDate(latestDateQuery.data.latest_available_date);
+    }
+  }, [latestDateQuery.data]);
+
 
   const explanationQuery = useQuery({
     queryKey: ['optimization', 'explanation', latestQuery.data?.id],

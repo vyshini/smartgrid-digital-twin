@@ -28,6 +28,7 @@ from app.application.forecasting.forecast_city_load_use_case import (
 )
 from app.ml import evaluator
 from app.ml.interfaces import ForecastHorizon
+from app.ml import feature_engineering as fe
 from app.ml.model_registry import ModelNotFoundError
 from app.schemas.forecast_schemas import (
     ActualVsPredictedPointSchema,
@@ -44,6 +45,19 @@ from pathlib import Path
 from app.core.config import get_settings
 
 router = APIRouter()
+
+@router.get("/{city}/latest-available-date")
+def get_latest_available_date(city: str) -> dict:
+    """Reports the most recent real date this city's data supports a full
+    lookback window for — the frontend uses this to default its date
+    pickers, instead of the API silently 422ing against 'today' when the
+    static dataset ends well in the past."""
+    from app.api.deps_forecast import get_data_provider
+
+    provider = get_data_provider()
+    df = provider(city)
+    latest = df.dropna(subset=fe.DEFAULT_FEATURE_COLUMNS).index.max()
+    return {"city": city, "latest_available_date": str(latest.date())}
 
 
 @router.get("/{city}/{horizon}", response_model=ForecastResponseSchema, summary="Predict a city's load for the given horizon.")

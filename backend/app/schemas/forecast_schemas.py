@@ -30,8 +30,9 @@ class ForecastResponseSchema(BaseModel):
         description="Not currently available — this project reports point forecasts only, no calibrated uncertainty interval.",
     )
 
-    class Config:
-        json_schema_extra = {
+    model_config = {
+        "protected_namespaces": (),
+        "json_schema_extra": {
             "example": {
                 "city": "Delhi",
                 "horizon": "next_day",
@@ -41,7 +42,8 @@ class ForecastResponseSchema(BaseModel):
                 "model_version": "20260718-064343",
                 "confidence_interval_mw": None,
             }
-        }
+        },
+    }
 
 
 class ForecastErrorSchema(BaseModel):
