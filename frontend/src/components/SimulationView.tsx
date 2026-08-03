@@ -1,18 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { City, Scenario } from '../types/index.js';
+import { City, Scenario, WeatherScenarioResult, GenerationScenarioResult } from '../types/index.js';
 import { api } from '../api/client.js';
 import {
   Sliders,
   CloudRain,
-  Flame,
-  Wind,
-  Sun,
   Activity,
   AlertOctagon,
-  ArrowRight,
-  Zap,
-  TrendingDown,
-  TrendingUp
+  ArrowRight
 } from 'lucide-react';
 
 interface SimulationViewProps {
@@ -22,42 +16,50 @@ interface SimulationViewProps {
 export const SimulationView: React.FC<SimulationViewProps> = ({ selectedCity }) => {
   const [weatherScenarios, setWeatherScenarios] = useState<Scenario[]>([]);
   const [genScenarios, setGenScenarios] = useState<Scenario[]>([]);
-  const [activeWeatherScenario, setActiveWeatherScenario] = useState<string>('heatwave');
-  const [activeGenScenario, setActiveGenScenario] = useState<string>('solar_drought');
+  const [activeWeatherScenario, setActiveWeatherScenario] = useState<string>('');
+  const [activeGenScenario, setActiveGenScenario] = useState<string>('');
+  const [latestDate, setLatestDate] = useState<string>('');
 
-  const [weatherResult, setWeatherResult] = useState<any>(null);
-  const [genResult, setGenResult] = useState<any>(null);
+  const [weatherResult, setWeatherResult] = useState<WeatherScenarioResult | null>(null);
+  const [genResult, setGenResult] = useState<GenerationScenarioResult | null>(null);
   const [running, setRunning] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
+    setWeatherResult(null);
+    setGenResult(null);
 
-    Promise.all([
+    Promise.allSettled([
       api.getWeatherScenarios(),
-      api.getGenerationScenarios(selectedCity.id)
-    ])
-      .then(([wRes, gRes]) => {
-        if (isMounted) {
-          setWeatherScenarios(wRes);
-          setGenScenarios(gRes);
-          setLoading(false);
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        if (isMounted) setLoading(false);
-      });
+      api.getGenerationScenarios(selectedCity.id),
+      api.getLatestAvailableDate(selectedCity.name),
+    ]).then(([wRes, gRes, dRes]) => {
+      if (!isMounted) return;
+
+      // Scenarios are city-scoped on the real backend (e.g. only Delhi has
+      // heatwave_delhi/solar_failure_delhi today) — filter to this city
+      // rather than assuming every scenario key applies everywhere.
+      const w = wRes.status === 'fulfilled' ? wRes.value.filter(s => s.city === selectedCity.name) : [];
+      const g = gRes.status === 'fulfilled' ? gRes.value.filter(s => s.city === selectedCity.name) : [];
+      setWeatherScenarios(w);
+      setGenScenarios(g);
+      setActiveWeatherScenario(w[0]?.key ?? '');
+      setActiveGenScenario(g[0]?.key ?? '');
+      if (dRes.status === 'fulfilled') setLatestDate(dRes.value.latest_available_date);
+      setLoading(false);
+    });
 
     return () => { isMounted = false; };
-  }, [selectedCity.id]);
+  }, [selectedCity.id, selectedCity.name]);
 
   const handleRunWeatherScenario = async (key: string) => {
+    if (!latestDate) return;
     setRunning(true);
     setActiveWeatherScenario(key);
     try {
-      const res = await api.runWeatherScenario(key);
+      const res = await api.runWeatherScenario(key, latestDate);
       setWeatherResult(res);
     } catch (err) {
       console.error(err);
@@ -70,7 +72,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ selectedCity }) 
     setRunning(true);
     setActiveGenScenario(key);
     try {
-      const res = await api.runGenerationScenario(selectedCity.id, key);
+      const res = await api.runGenerationScenario(selectedCity.id, key, latestDate || undefined);
       setGenResult(res);
     } catch (err) {
       console.error(err);
@@ -92,7 +94,7 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ selectedCity }) 
 
   return (
     <div className="space-y-6 pb-12">
-      
+
       {/* Header */}
       <div className="p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-800">
         <div className="flex items-center gap-2">
@@ -111,27 +113,31 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ selectedCity }) 
           <span>Weather Anomaly Scenarios (LSTM Re-forecast)</span>
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {weatherScenarios.map(sc => (
-            <button
-              key={sc.key}
-              onClick={() => handleRunWeatherScenario(sc.key)}
-              disabled={running}
-              className={`p-4 rounded-xl border text-left transition-all ${
-                activeWeatherScenario === sc.key
-                  ? 'bg-slate-800 border-cyan-400 shadow-lg shadow-cyan-500/10'
-                  : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
-              }`}
-            >
-              <h3 className="font-bold text-xs text-white mb-1">{sc.name}</h3>
-              <p className="text-[11px] text-slate-400">{sc.description}</p>
-              <div className="mt-3 text-xs font-bold text-cyan-400 flex items-center gap-1">
-                <span>Run Weather Test</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </div>
-            </button>
-          ))}
-        </div>
+        {weatherScenarios.length === 0 ? (
+          <p className="text-xs text-slate-500">No weather scenarios defined for {selectedCity.name} yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {weatherScenarios.map(sc => (
+              <button
+                key={sc.key}
+                onClick={() => handleRunWeatherScenario(sc.key)}
+                disabled={running}
+                className={`p-4 rounded-xl border text-left transition-all disabled:opacity-50 ${
+                  activeWeatherScenario === sc.key
+                    ? 'bg-slate-800 border-cyan-400 shadow-lg shadow-cyan-500/10'
+                    : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <h3 className="font-bold text-xs text-white mb-1">{sc.name}</h3>
+                <p className="text-[11px] text-slate-400">{sc.description}</p>
+                <div className="mt-3 text-xs font-bold text-cyan-400 flex items-center gap-1">
+                  <span>Run Weather Test</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
 
         {weatherResult && (
           <div className="p-5 rounded-xl bg-slate-950 border border-cyan-500/30 space-y-3">
@@ -169,27 +175,31 @@ export const SimulationView: React.FC<SimulationViewProps> = ({ selectedCity }) 
           <span>Generation Capacity Disruptions (QAOA Re-dispatch)</span>
         </h2>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {genScenarios.map(sc => (
-            <button
-              key={sc.key}
-              onClick={() => handleRunGenScenario(sc.key)}
-              disabled={running}
-              className={`p-4 rounded-xl border text-left transition-all ${
-                activeGenScenario === sc.key
-                  ? 'bg-slate-800 border-amber-400 shadow-lg shadow-amber-500/10'
-                  : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
-              }`}
-            >
-              <h3 className="font-bold text-xs text-white mb-1">{sc.name}</h3>
-              <p className="text-[11px] text-slate-400">{sc.description}</p>
-              <div className="mt-3 text-xs font-bold text-amber-400 flex items-center gap-1">
-                <span>Test QAOA Response</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </div>
-            </button>
-          ))}
-        </div>
+        {genScenarios.length === 0 ? (
+          <p className="text-xs text-slate-500">No generation scenarios defined for {selectedCity.name} yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {genScenarios.map(sc => (
+              <button
+                key={sc.key}
+                onClick={() => handleRunGenScenario(sc.key)}
+                disabled={running}
+                className={`p-4 rounded-xl border text-left transition-all disabled:opacity-50 ${
+                  activeGenScenario === sc.key
+                    ? 'bg-slate-800 border-amber-400 shadow-lg shadow-amber-500/10'
+                    : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
+                }`}
+              >
+                <h3 className="font-bold text-xs text-white mb-1">{sc.name}</h3>
+                <p className="text-[11px] text-slate-400">{sc.description}</p>
+                <div className="mt-3 text-xs font-bold text-amber-400 flex items-center gap-1">
+                  <span>Test QAOA Response</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
 
         {genResult && (
           <div className="p-5 rounded-xl bg-slate-950 border border-amber-500/30 space-y-3">

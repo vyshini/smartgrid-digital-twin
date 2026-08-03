@@ -17,10 +17,9 @@
     "noImplicitAny": false,
     "allowJs": true,
     "esModuleInterop": true,
-    "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
     }
   },
-  "include": ["src", "server"]
+  "include": ["src"]
 }

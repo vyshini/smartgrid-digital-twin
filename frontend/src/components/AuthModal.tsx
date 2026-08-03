@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types/index.js';
 import { api } from '../api/client.js';
-import { ShieldCheck, Lock, User as UserIcon, X, CheckCircle } from 'lucide-react';
+import { ShieldCheck, Lock, User as UserIcon, X } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -10,8 +10,12 @@ interface AuthModalProps {
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserUpdate }) => {
+  // NOTE: these are just convenience defaults for local development against
+  // your own bootstrapped admin account — update them to match whatever
+  // credentials you actually created via backend/bootstrap_admin.py (or a
+  // reset script), or just clear the fields and type your real ones.
   const [username, setUsername] = useState<string>('admin');
-  const [password, setPassword] = useState<string>('change-me-immediately');
+  const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string>('');
 
@@ -95,9 +99,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onUserUpd
         </form>
 
         <div className="mt-4 pt-4 border-t border-slate-800/80 text-[11px] text-slate-400 space-y-1">
-          <p className="font-bold text-slate-300">Default Demo Credentials:</p>
-          <p>• Admin: <code className="text-cyan-300 font-mono">admin</code> / <code className="text-cyan-300 font-mono">change-me-immediately</code></p>
-          <p>• Operator: <code className="text-cyan-300 font-mono">operator</code> / <code className="text-cyan-300 font-mono">operator123</code></p>
+          <p>
+            Sign in with an account created via <code className="text-cyan-300 font-mono">backend/bootstrap_admin.py</code>{' '}
+            (or the admin register endpoint). There is no demo/mock account on this backend — every login is checked
+            against real bcrypt-hashed credentials in your Postgres database.
+          </p>
         </div>
       </div>
     </div>

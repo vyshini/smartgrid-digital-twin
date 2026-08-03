@@ -48,28 +48,30 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     );
   }
 
- // National generation mix — derived from REAL avg_renewable_pct, not fabricated.
-// A full per-source (coal/hydro/wind/solar) breakdown would require fetching each
-// city's /optimization/{id}/latest allocation_result — worth adding once more
-// cities have real optimization runs (see advisories banner above).
-const renewablePct = overview.avg_renewable_pct ?? 0;
-const genMixData = [
-  { name: 'Renewable (Hydro+Wind+Solar)', value: renewablePct, color: '#10b981' },
-  { name: 'Non-Renewable (Coal+Import)', value: 100 - renewablePct, color: '#64748b' },
-];
+  // National generation mix — derived from REAL avg_renewable_pct, not
+  // fabricated. A full per-source (coal/hydro/wind/solar) breakdown would
+  // require fetching each city's /optimization/{id}/latest allocation_result
+  // and summing it — a reasonable v2 feature once more cities have real
+  // optimization runs (see the advisories banner below for current coverage).
+  const hasRenewableData = overview.avg_renewable_pct != null;
+  const renewablePct = overview.avg_renewable_pct ?? 0;
+  const genMixData = hasRenewableData
+    ? [
+        { name: 'Renewable (Hydro+Wind+Solar)', value: renewablePct, color: '#10b981' },
+        { name: 'Non-Renewable (Coal+Import)', value: 100 - renewablePct, color: '#64748b' },
+      ]
+    : [];
 
-const cityBarData = overview.cities
-  .filter(c => c.latest_forecast_mw != null)   // honest: only plot cities with real data
-  .map(c => ({
-    name: c.city_name,
-    demand: c.latest_forecast_mw,
-    renewable: c.renewable_pct != null ? Math.round(c.renewable_pct) : null,
-    stability: c.grid_stability_score != null ? Math.round(c.grid_stability_score) : null,
-  }));
+  const cityBarData = overview.cities
+    .filter(c => c.latest_forecast_mw != null) // honest: only plot cities with real forecasts
+    .map(c => ({
+      name: c.city_name,
+      demand: c.latest_forecast_mw as number,
+    }));
 
   return (
     <div className="space-y-6 pb-12">
-      
+
       {/* Banner / Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6 rounded-2xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-800 shadow-xl">
         <div>
@@ -79,7 +81,8 @@ const cityBarData = overview.cities
           </div>
           <h1 className="text-2xl font-extrabold text-white mt-1">National Smart Grid Digital Twin</h1>
           <p className="text-sm text-slate-400 mt-1">
-            Real-time monitoring across {overview.total_cities} Indian urban power hubs integrated with Quantum QAOA optimization.
+            Real-time monitoring across {overview.total_cities} Indian urban power hubs
+            ({overview.cities_with_data} with optimization data) integrated with Quantum QAOA optimization.
           </p>
         </div>
 
@@ -96,18 +99,20 @@ const cityBarData = overview.cities
 
       {/* Primary Telemetry Metrics Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        
+
         <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-lg">
           <div className="flex items-center justify-between text-slate-400 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider">National Demand</span>
             <Zap className="h-4 w-4 text-cyan-400" />
           </div>
           <div className="text-2xl font-extrabold text-white">
-            {overview.national_forecast_demand_mw ? `${overview.national_forecast_demand_mw.toLocaleString()} MW` : '26,500 MW'}
+            {overview.national_forecast_demand_mw != null
+              ? `${overview.national_forecast_demand_mw.toLocaleString()} MW`
+              : '— no forecasts yet'}
           </div>
           <div className="text-xs text-slate-400 mt-2 flex items-center gap-1">
             <ArrowUpRight className="h-3.5 w-3.5 text-amber-400" />
-            <span>Peak hour load prediction</span>
+            <span>Sum of latest per-city forecasts</span>
           </div>
         </div>
 
@@ -117,10 +122,10 @@ const cityBarData = overview.cities
             <ShieldCheck className="h-4 w-4 text-emerald-400" />
           </div>
           <div className="text-2xl font-extrabold text-emerald-400">
-            {overview.avg_grid_stability_score ? `${overview.avg_grid_stability_score}%` : '93.4%'}
+            {overview.avg_grid_stability_score != null ? `${overview.avg_grid_stability_score}%` : '—'}
           </div>
           <div className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-            <span className="text-emerald-400 font-semibold">Optimal</span> frequency resilience
+            <span>Avg. across {overview.cities_with_data} optimized {overview.cities_with_data === 1 ? 'city' : 'cities'}</span>
           </div>
         </div>
 
@@ -130,10 +135,10 @@ const cityBarData = overview.cities
             <Cpu className="h-4 w-4 text-cyan-400" />
           </div>
           <div className="text-2xl font-extrabold text-cyan-400">
-            {overview.avg_optimization_score ? `${overview.avg_optimization_score}` : '99.85'}
+            {overview.avg_optimization_score != null ? overview.avg_optimization_score : '—'}
           </div>
           <div className="text-xs text-slate-400 mt-2 flex items-center gap-1">
-            <span>20-qubit exact match</span>
+            <span>vs. classical brute-force baseline</span>
           </div>
         </div>
 
@@ -143,10 +148,10 @@ const cityBarData = overview.cities
             <Leaf className="h-4 w-4 text-emerald-400" />
           </div>
           <div className="text-2xl font-extrabold text-white">
-            {overview.avg_renewable_pct ? `${overview.avg_renewable_pct}%` : '78.4%'}
+            {overview.avg_renewable_pct != null ? `${overview.avg_renewable_pct}%` : '—'}
           </div>
           <div className="text-xs text-emerald-400 mt-2">
-            +14.2% vs unoptimized grid
+            Hydro + Wind + Solar of dispatched supply
           </div>
         </div>
 
@@ -156,10 +161,10 @@ const cityBarData = overview.cities
             <TrendingUp className="h-4 w-4 text-teal-400" />
           </div>
           <div className="text-2xl font-extrabold text-teal-300">
-            {overview.avg_co2_reduction_pct ? `${overview.avg_co2_reduction_pct}%` : '42.1%'}
+            {overview.avg_co2_reduction_pct != null ? `${overview.avg_co2_reduction_pct}%` : '—'}
           </div>
           <div className="text-xs text-slate-400 mt-2">
-            Carbon reduction metric
+            vs. an unoptimized all-coal baseline
           </div>
         </div>
 
@@ -185,7 +190,7 @@ const cityBarData = overview.cities
 
       {/* National Visualizations Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
+
         {/* City Demand Breakdown */}
         <div className="lg:col-span-2 p-6 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-lg">
           <div className="flex items-center justify-between mb-4">
@@ -194,7 +199,11 @@ const cityBarData = overview.cities
                 <BarChart2 className="h-5 w-5 text-cyan-400" />
                 <span>Metropolitan City Power Demand (MW)</span>
               </h3>
-              <p className="text-xs text-slate-400">Predicted peak loads across key urban grid nodes</p>
+              <p className="text-xs text-slate-400">
+                {cityBarData.length > 0
+                  ? 'Latest real LSTM forecasts, per city'
+                  : 'No cities have a forecast on record yet — run one from the LSTM Load Forecast tab'}
+              </p>
             </div>
             <button
               onClick={() => onNavigateTab('forecast')}
@@ -205,16 +214,22 @@ const cityBarData = overview.cities
           </div>
 
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={cityBarData}>
-                <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
-                <YAxis stroke="#64748b" fontSize={12} />
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#f8fafc' }}
-                />
-                <Bar dataKey="demand" fill="#06b6d4" radius={[6, 6, 0, 0]} name="Demand MW" />
-              </BarChart>
-            </ResponsiveContainer>
+            {cityBarData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={cityBarData}>
+                  <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
+                  <YAxis stroke="#64748b" fontSize={12} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '12px', color: '#f8fafc' }}
+                  />
+                  <Bar dataKey="demand" fill="#06b6d4" radius={[6, 6, 0, 0]} name="Demand MW" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-slate-500">
+                No real forecast data to display yet.
+              </div>
+            )}
           </div>
         </div>
 
@@ -223,33 +238,39 @@ const cityBarData = overview.cities
           <div className="mb-4">
             <h3 className="text-base font-bold text-white flex items-center gap-2">
               <Leaf className="h-5 w-5 text-emerald-400" />
-              <span>QAOA Dispatched Energy Mix</span>
+              <span>Renewable vs Non-Renewable Mix</span>
             </h3>
-            <p className="text-xs text-slate-400">National power source distribution</p>
+            <p className="text-xs text-slate-400">Average across cities with a completed QAOA run</p>
           </div>
 
           <div className="h-52">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={genMixData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={50}
-                  outerRadius={75}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {genMixData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }}
-                />
-                <Legend formatter={(value) => <span className="text-xs text-slate-300 font-medium">{value}</span>} />
-              </PieChart>
-            </ResponsiveContainer>
+            {hasRenewableData ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={genMixData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={50}
+                    outerRadius={75}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {genMixData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '8px' }}
+                  />
+                  <Legend formatter={(value) => <span className="text-xs text-slate-300 font-medium">{value}</span>} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-full flex items-center justify-center text-xs text-slate-500 text-center px-4">
+                No optimization runs yet — run QAOA for at least one city to see a real generation mix.
+              </div>
+            )}
           </div>
         </div>
 
@@ -283,31 +304,31 @@ const cityBarData = overview.cities
                     </h3>
                     <span className="text-xs text-slate-400">{city.state} • {city.timezone}</span>
                   </div>
-                  <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20">
-                  Pop. {(city.population / 1_000_000).toFixed(1)}M
-                </span>
+                  <span className="px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 text-xs font-bold border border-slate-700">
+                    Pop. {(city.population / 1_000_000).toFixed(1)}M
+                  </span>
                 </div>
 
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between text-slate-400">
-                  <span>Base Demand:</span>
-                  <span className="font-mono text-slate-200 font-semibold">
-                    {cityData?.latest_forecast_mw != null ? `${cityData.latest_forecast_mw.toLocaleString()} MW` : '— no forecast yet'}
-                  </span>
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between text-slate-400">
+                    <span>Latest Forecast:</span>
+                    <span className="font-mono text-slate-200 font-semibold">
+                      {cityData?.latest_forecast_mw != null ? `${cityData.latest_forecast_mw.toLocaleString()} MW` : '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>QAOA Renewable Share:</span>
+                    <span className="font-mono text-emerald-400 font-semibold">
+                      {cityData?.renewable_pct != null ? `${cityData.renewable_pct}%` : '—'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-slate-400">
+                    <span>Cost Reduction:</span>
+                    <span className="font-mono text-cyan-400 font-semibold">
+                      {cityData?.cost_reduction_pct != null ? `${cityData.cost_reduction_pct}%` : '—'}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-slate-400">
-                  <span>QAOA Renewable Share:</span>
-                  <span className="font-mono text-emerald-400 font-semibold">
-                    {cityData?.renewable_pct != null ? `${cityData.renewable_pct}%` : '—'}
-                  </span>
-                </div>
-                <div className="flex justify-between text-slate-400">
-                  <span>Cost Reduction:</span>
-                  <span className="font-mono text-cyan-400 font-semibold">
-                    {cityData?.cost_reduction_pct != null ? `${cityData.cost_reduction_pct}%` : '—'}
-                  </span>
-                </div>
-              </div>
                 <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-xs text-cyan-400 font-semibold group-hover:translate-x-1 transition-transform">
                   <span>Open Digital Twin</span>
                   <ArrowUpRight className="h-4 w-4" />

@@ -1,14 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { City, NationalOverview, User } from './types/index.js';
 import { api } from './api/client.js';
-import { Navbar } from './components/Navbar.tsx';
-import { DashboardView } from './components/DashboardView.tsx';
-import { CityExplorerView } from './components/CityExplorerView.tsx';
-import { ForecastingView } from './components/ForecastingView.tsx';
-import { QAOAOptimizationView } from './components/QAOAOptimizationView.tsx';
-import { SimulationView } from './components/SimulationView.tsx';
-import { WeatherView } from './components/WeatherView.tsx';
-import { AuthModal } from './components/AuthModal.tsx';
+import { Navbar } from './components/Navbar.js';
+import { DashboardView } from './components/DashboardView.js';
+import { CityExplorerView } from './components/CityExplorerView.js';
+import { ForecastingView } from './components/ForecastingView.js';
+import { QAOAOptimizationView } from './components/QAOAOptimizationView.js';
+import { SimulationView } from './components/SimulationView.js';
+import { WeatherView } from './components/WeatherView.js';
+import { AuthModal } from './components/AuthModal.js';
 import { Activity, ShieldCheck, Zap } from 'lucide-react';
 
 export function App() {
@@ -28,7 +28,7 @@ export function App() {
       .then(([cRes, oRes]) => {
         setCities(cRes);
         setOverview(oRes);
-        if (cRes.length > 0) setSelectedCity(cRes[0]);
+        setSelectedCity(prev => prev ?? (cRes.length > 0 ? cRes[0] : null));
       })
       .catch(err => {
         console.error('Failed to load Digital Twin telemetry:', err);
@@ -40,7 +40,10 @@ export function App() {
     const token = localStorage.getItem('smartgrid_token');
 
     if (!token) {
-      // No session at all — require login before fetching any protected data.
+      // No session at all — require login before fetching any protected
+      // data. The real backend correctly rejects unauthenticated calls to
+      // /cities, /dashboard/overview, and /auth/me (require_any_authenticated_role),
+      // so there is nothing honest to show until someone signs in.
       if (isMounted) {
         setAuthOpen(true);
         setLoading(false);
@@ -48,7 +51,7 @@ export function App() {
       return;
     }
 
-    // A token exists — validate it before trusting it.
+    // A token exists in storage — validate it before trusting it.
     api.getMe()
       .then(u => {
         if (!isMounted) return;
@@ -58,8 +61,7 @@ export function App() {
       })
       .catch(() => {
         // Stale/expired/invalid token — clear it and require a fresh login.
-        localStorage.removeItem('smartgrid_token');
-        localStorage.removeItem('smartgrid_refresh_token');
+        api.logout();
         if (isMounted) {
           setAuthOpen(true);
           setLoading(false);
@@ -72,6 +74,15 @@ export function App() {
   const handleUserUpdate = (u: User) => {
     setUser(u);
     loadTelemetry();
+  };
+
+  const handleLogout = () => {
+    api.logout();
+    setUser(null);
+    setCities([]);
+    setOverview(null);
+    setSelectedCity(null);
+    setAuthOpen(true);
   };
 
   if (loading) {
@@ -97,6 +108,7 @@ export function App() {
         setSelectedCity={setSelectedCity}
         user={user}
         onOpenAuth={() => setAuthOpen(true)}
+        onLogout={handleLogout}
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -146,10 +158,10 @@ export function App() {
             <Zap className="h-4 w-4 text-cyan-400" />
             <span className="font-semibold text-slate-300">Indian Smart Grid Digital Twin</span>
             <span className="text-slate-600">•</span>
-            <span>20-Qubit QAOA & LSTM Hybrid Architecture</span>
+            <span>LSTM Forecasting & QAOA Hybrid Optimization</span>
           </div>
           <div className="flex items-center gap-4 font-mono">
-            <span>Backend: <span className="text-emerald-400">localhost:8000</span></span>
+            <span>Backend: <span className="text-emerald-400">FastAPI :8000</span></span>
             <span>Status: <span className="text-cyan-400">Live</span></span>
           </div>
         </div>

@@ -1,0 +1,100 @@
+# ============================================================================
+# Python
+# ============================================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+backend/venv/
+
+# ============================================================================
+# Secrets / environment config — NEVER commit these
+# ============================================================================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ============================================================================
+# Backend (FastAPI)
+# ============================================================================
+backend/**/__pycache__/
+backend/.pytest_cache/
+backend/.coverage
+backend/htmlcov/
+backend/*.db
+backend/*.sqlite3
+
+
+
+# ============================================================================
+# ML training (Phase 3) — data and trained models are large/regeneratable;
+# keep the scripts and small summary CSVs, not the heavy artifacts.
+# Download/regeneration instructions belong in the README, not the repo.
+# ============================================================================
+ml-training/data/raw/*.csv
+ml-training/data/raw/*.json
+ml-training/data/processed/*.csv
+ml-training/models/
+ml-training/notebooks/.ipynb_checkpoints/
+ml-training/notebooks/*.ipynb_checkpoints
+
+# Keep the small, meaningful results (training_summary.csv etc.) —
+# explicitly un-ignore in case a broader rule above would catch them
+!ml-training/results/*.csv
+!ml-training/results/*.json
+
+# ============================================================================
+# Quantum optimization (Phase 4) — same reasoning: keep scripts + small
+# summary CSVs, not large intermediate artifacts
+# ============================================================================
+quantum-optimization/results/*.png
+!quantum-optimization/results/*.csv
+
+# ============================================================================
+# Frontend (Phase 5, when it exists)
+# ============================================================================
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.vite/
+*.local
+
+# ============================================================================
+# Docker (Phase 6)
+# ============================================================================
+*.env.docker
+
+# ============================================================================
+# IDE / editor
+# ============================================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ============================================================================
+# OS
+# ============================================================================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ============================================================================
+# Logs
+# ============================================================================
+*.log
+logs/

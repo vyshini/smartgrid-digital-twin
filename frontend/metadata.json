@@ -1,8 +1,0 @@
-{
-  "name": "Quantum-AI Smart Grid Digital Twin",
-  "description": "Full-stack Digital Twin for Indian Smart Grid load forecasting, Quantum QAOA grid optimization, real-time power telemetry, and weather scenario simulation across 8 major cities.",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}
