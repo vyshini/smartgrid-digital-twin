@@ -19,8 +19,18 @@ pytest-asyncio==0.24.0
 pytest-cov==5.0.0
 aiosqlite==0.20.0
 
-# --- quantum optimization (Phase 4) ---
+# --- ML forecasting (LSTM) ---
 numpy==1.26.4
+pandas==2.2.3
+scikit-learn==1.5.2
+joblib==1.4.2
+holidays==0.58
+tensorflow==2.16.2
+
+# --- quantum optimization (QAOA) ---
 qiskit==1.2.4
 qiskit-aer==0.15.1
 qiskit-algorithms==0.3.1
+
+# --- optional: circuit diagram PNG export ---
+matplotlib==3.9.2

@@ -1,0 +1,34 @@
+{
+  "Ahmedabad": {
+    "next_day": "gbt",
+    "next_week": "gbt"
+  },
+  "Bangalore": {
+    "next_day": "gbt",
+    "next_week": "persistence"
+  },
+  "Chennai": {
+    "next_day": "lstm",
+    "next_week": "lstm"
+  },
+  "Delhi": {
+    "next_day": "gbt",
+    "next_week": "gbt"
+  },
+  "Hyderabad": {
+    "next_day": "lstm",
+    "next_week": "lstm"
+  },
+  "Kolkata": {
+    "next_day": "lstm",
+    "next_week": "lstm"
+  },
+  "Mumbai": {
+    "next_day": "gbt",
+    "next_week": "lstm"
+  },
+  "Pune": {
+    "next_day": "gbt",
+    "next_week": "persistence"
+  }
+}

@@ -38,7 +38,10 @@ backend/htmlcov/
 backend/*.db
 backend/*.sqlite3
 
-
+# Large ML model artifacts — regenerate with trainer; keep metrics + latest.json
+backend/app/ml/artifacts/**/model.keras
+backend/app/ml/artifacts/**/checkpoint.keras
+backend/app/ml/artifacts/**/*.joblib
 
 # ============================================================================
 # ML training (Phase 3) — data and trained models are large/regeneratable;
@@ -61,8 +64,13 @@ ml-training/notebooks/*.ipynb_checkpoints
 # Quantum optimization (Phase 4) — same reasoning: keep scripts + small
 # summary CSVs, not large intermediate artifacts
 # ============================================================================
-quantum-optimization/results/*.png
-!quantum-optimization/results/*.csv
+quantum_optimization/results/*.png
+!quantum_optimization/results/*.csv
+
+# Agent / IDE tooling (not part of the app)
+backend/.agents/
+backend/.neon/
+backend/skills-lock.json
 
 # ============================================================================
 # Frontend (Phase 5, when it exists)

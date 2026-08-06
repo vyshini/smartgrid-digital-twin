@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import get_settings
 from app.core.exceptions import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
-from app.api.v1 import auth, cities, forecast,optimization,simulation,dashboard,weather,reports
+from app.api.v1 import auth, cities, dashboard, forecast, optimization, reports, simulation, weather
 
 
 settings = get_settings()

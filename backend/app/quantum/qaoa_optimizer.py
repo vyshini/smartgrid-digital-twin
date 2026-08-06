@@ -38,7 +38,7 @@ potential future use / consistency with the original tech stack).
 from __future__ import annotations
 
 import numpy as np
-from qiskit.primitives import StatevectorSampler
+from qiskit.primitives import Sampler
 from qiskit.quantum_info import SparsePauliOp
 from qiskit_algorithms import QAOA
 from qiskit_algorithms.optimizers import COBYLA
@@ -132,7 +132,8 @@ def run_qaoa(
 
     # StatevectorSampler needs no transpiler/pass-manager, unlike Aer's
     # SamplerV2 — see module docstring for why this matters in practice.
-    sampler = StatevectorSampler(seed=seed, default_shots=shots)
+    
+    sampler = Sampler(options={"seed": seed, "shots": shots})
     optimizer = COBYLA(maxiter=maxiter)
     qaoa = QAOA(sampler=sampler, optimizer=optimizer, reps=reps)
 

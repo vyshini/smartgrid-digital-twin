@@ -1,36 +1,16 @@
 """
-Trains the dual-head LSTM (model.py) for each city, using the real,
-feature-engineered windows from feature_engineering.py.
+Trains the dual-head LSTM (model.py) for each city.
 
-SPLIT METHODOLOGY — chronological, not random:
-    This is a time series. A random train/val/test split would let the
-    model "see the future" during training (a window from March 2019 could
-    end up in the training set while a window from January 2019 ends up in
-    the test set), which silently inflates every metric below and produces
-    a model that looks good offline but degrades in deployment. Instead we
-    sort all windows by window_end_date and cut chronologically:
+*** CHANGE (delta-target fix) ***
+The model's two heads now predict DELTAS (change from the anchor day),
+not absolute MW levels — see feature_engineering.py's module docstring.
+Critically: METRICS (MAE/RMSE/MAPE) are still computed in ABSOLUTE MW,
+by adding the anchor back to both the true delta and the predicted delta
+before scoring. This keeps your reported metrics comparable to the old
+absolute-level model's metrics, while the model itself trains on the
+easier, better-behaved delta target.
 
-        [------------- train (70%) -------------][-- val (15%) --][-- test (15%) --]
-        earliest dates                                                latest dates
-
-    The test set is therefore genuinely held out in time — it simulates
-    "how would this model, trained only on the past, have performed on
-    dates it has never seen." No shuffling is applied before the split.
-    (Shuffling *within* each split, e.g. for mini-batch order during
-    training, is fine and is left to Keras' default `shuffle=True` in
-    model.fit — that only reorders which already-in-train windows appear
-    in which batch, not train/val/test membership.)
-
-Run from ml-training/scripts/:
-    python train_lstm.py                     # trains all 8 cities
-    python train_lstm.py --city Delhi         # single city, e.g. for a smoke test
-    python train_lstm.py --city Delhi --epochs 2   # fast sanity check
-
-NOTE ON SANDBOX EXECUTION: written against TensorFlow/Keras 2.x; could not
-be run in the sandbox this project was authored in (tensorflow not
-installed, no network access to install it or to fetch a GPU runtime).
-Same caveat as fetch_weather.py — validate on your own machine before
-trusting the numbers, starting with a 1-2 epoch run on one city.
+SPLIT METHODOLOGY — chronological, unchanged from the original version.
 """
 from __future__ import annotations
 
@@ -62,31 +42,18 @@ RESULTS_DIR = Path(__file__).parent.parent / "results"
 
 TRAIN_FRAC = 0.70
 VAL_FRAC = 0.15
-# remaining ~0.15 is TEST_FRAC, implied
-
 SEED = 42
 
-
-# ---------------------------------------------------------------------------
-# Splitting
-# ---------------------------------------------------------------------------
 
 def time_based_split(
     X: np.ndarray,
     y_day: np.ndarray,
     y_week: np.ndarray,
+    anchors: np.ndarray,          # *** NEW ***
     dates: np.ndarray,
     train_frac: float = TRAIN_FRAC,
     val_frac: float = VAL_FRAC,
 ) -> dict:
-    """
-    Chronological split — see module docstring. `dates` (window_end_dates
-    from build_supervised_windows) are assumed already sorted ascending,
-    which build_supervised_windows guarantees since it iterates the
-    already-sorted df in order. We assert that here rather than assume it
-    silently, since a silent violation would defeat the whole point of
-    this function.
-    """
     if not np.all(np.diff(dates).astype("timedelta64[D]").astype(int) >= 0):
         raise ValueError(
             "window_end_dates are not sorted ascending — time_based_split "
@@ -100,25 +67,18 @@ def time_based_split(
     if train_end == 0 or val_end == train_end or val_end == n:
         raise ValueError(
             f"Not enough windows ({n}) to form non-empty train/val/test splits "
-            f"at fractions {train_frac}/{val_frac}/{1 - train_frac - val_frac}. "
-            f"Check that the demand+weather date ranges actually overlap."
+            f"at fractions {train_frac}/{val_frac}/{1 - train_frac - val_frac}."
         )
 
     return {
-        "train": (X[:train_end], y_day[:train_end], y_week[:train_end], dates[:train_end]),
-        "val": (X[train_end:val_end], y_day[train_end:val_end], y_week[train_end:val_end], dates[train_end:val_end]),
-        "test": (X[val_end:], y_day[val_end:], y_week[val_end:], dates[val_end:]),
+        "train": (X[:train_end], y_day[:train_end], y_week[:train_end], anchors[:train_end], dates[:train_end]),
+        "val": (X[train_end:val_end], y_day[train_end:val_end], y_week[train_end:val_end],
+                anchors[train_end:val_end], dates[train_end:val_end]),
+        "test": (X[val_end:], y_day[val_end:], y_week[val_end:], anchors[val_end:], dates[val_end:]),
     }
 
 
-# ---------------------------------------------------------------------------
-# Scaling — fit on train only, applied to val/test (no leakage)
-# ---------------------------------------------------------------------------
-
 def fit_feature_scaler(X_train: np.ndarray) -> StandardScaler:
-    """Fits a StandardScaler on the TRAIN split only. X is (n, lookback,
-    n_features); flattened to (n*lookback, n_features) to fit per-feature
-    mean/std, since sklearn scalers expect 2D input."""
     n, lookback, n_features = X_train.shape
     scaler = StandardScaler()
     scaler.fit(X_train.reshape(-1, n_features))
@@ -144,18 +104,9 @@ def inverse_target_scaler(scaler: StandardScaler, y_scaled: np.ndarray) -> np.nd
     return scaler.inverse_transform(np.asarray(y_scaled).reshape(-1, 1)).ravel()
 
 
-# ---------------------------------------------------------------------------
-# Metrics
-# ---------------------------------------------------------------------------
-
 def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
-    """
-    MAE, RMSE, MAPE — all computed in real MW (post inverse-transform), not
-    in scaled units, since scaled-unit error numbers are meaningless to a
-    reader of the report. MAPE guards against division by ~0 demand rows
-    (shouldn't occur for city-level total_demand_mw, which is never near
-    zero, but guarded defensively rather than trusting that blindly).
-    """
+    """Unchanged — still computed in real MW. Callers must pass ABSOLUTE
+    MW values (anchor + delta), not raw deltas — see train_city()."""
     y_true = np.asarray(y_true, dtype=np.float64)
     y_pred = np.asarray(y_pred, dtype=np.float64)
 
@@ -172,9 +123,17 @@ def compute_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> dict:
     return {"mae_mw": round(mae, 3), "rmse_mw": round(rmse, 3), "mape_pct": round(mape, 3)}
 
 
-# ---------------------------------------------------------------------------
-# Per-city training
-# ---------------------------------------------------------------------------
+def compute_persistence_baseline(y_true_absolute: np.ndarray, anchors: np.ndarray) -> dict:
+    """
+    *** NEW *** — the persistence-baseline check flagged as missing.
+    "Naive forecast" = tomorrow's demand will equal the anchor day's
+    demand, i.e. predicted delta = 0. Run this on the SAME test split as
+    the real model so the two numbers are directly comparable. If your
+    trained model's MAPE isn't clearly better than this, it hasn't
+    learned anything the naive baseline didn't already know.
+    """
+    return compute_metrics(y_true_absolute, anchors)
+
 
 def train_city(
     city: str,
@@ -184,31 +143,25 @@ def train_city(
     patience: int = 15,
     verbose: int = 1,
 ) -> dict:
-    """
-    Loads city data -> builds supervised windows -> chronological split ->
-    scales (fit on train only) -> trains -> evaluates on the held-out test
-    split -> saves model + scalers + metrics to disk. Returns the metrics
-    dict (also written to results/<city>_metrics.json).
-    """
     set_global_seed(SEED)
-
     print(f"\n{'=' * 60}\n{city}\n{'=' * 60}")
 
     df = load_city_dataset(city)
     df = add_lag_features(df)
-    X, y_day, y_week, dates = build_supervised_windows(df, DEFAULT_FEATURE_COLUMNS, lookback=lookback)
+    X, y_day_delta, y_week_delta, anchors, dates = build_supervised_windows(
+        df, DEFAULT_FEATURE_COLUMNS, lookback=lookback
+    )
 
     if len(X) < 50:
         raise ValueError(
             f"{city}: only {len(X)} usable windows after dropping NaN-lag rows and "
-            f"contiguity gaps — too few to train/val/test split meaningfully. "
-            f"Check date-range overlap between demand and weather data for this city."
+            f"contiguity gaps — too few to train/val/test split meaningfully."
         )
 
-    splits = time_based_split(X, y_day, y_week, dates)
-    (X_tr, yday_tr, yweek_tr, dates_tr) = splits["train"]
-    (X_val, yday_val, yweek_val, dates_val) = splits["val"]
-    (X_te, yday_te, yweek_te, dates_te) = splits["test"]
+    splits = time_based_split(X, y_day_delta, y_week_delta, anchors, dates)
+    (X_tr, yday_tr, yweek_tr, anchors_tr, dates_tr) = splits["train"]
+    (X_val, yday_val, yweek_val, anchors_val, dates_val) = splits["val"]
+    (X_te, yday_te, yweek_te, anchors_te, dates_te) = splits["test"]
 
     print(
         f"  windows: train={len(X_tr)} ({str(dates_tr.min())[:10]} to {str(dates_tr.max())[:10]}), "
@@ -216,13 +169,12 @@ def train_city(
         f"test={len(X_te)} ({str(dates_te.min())[:10]} to {str(dates_te.max())[:10]})"
     )
 
-    # Scale features: fit on TRAIN ONLY, apply to all three splits.
     feature_scaler = fit_feature_scaler(X_tr)
     X_tr_s = apply_feature_scaler(feature_scaler, X_tr)
     X_val_s = apply_feature_scaler(feature_scaler, X_val)
     X_te_s = apply_feature_scaler(feature_scaler, X_te)
 
-    # Scale targets: separate scalers per horizon, fit on TRAIN ONLY.
+    # Scalers now fit on DELTAS, not absolute levels.
     day_scaler = fit_target_scaler(yday_tr)
     week_scaler = fit_target_scaler(yweek_tr)
 
@@ -256,14 +208,28 @@ def train_city(
     )
     train_seconds = round(time.time() - start, 1)
 
-    # --- Evaluate on the held-out, chronologically-later TEST split ---
+    # --- Predict deltas on TEST, then reconstruct ABSOLUTE MW before scoring ---
     preds = model.predict(X_te_s, verbose=0)
-    yday_pred = inverse_target_scaler(day_scaler, preds["next_day"])
-    yweek_pred = inverse_target_scaler(week_scaler, preds["next_week"])
+    yday_pred_delta = inverse_target_scaler(day_scaler, preds["next_day"])
+    yweek_pred_delta = inverse_target_scaler(week_scaler, preds["next_week"])
+
+    # Absolute reconstruction: anchor + delta
+    yday_true_abs = anchors_te + yday_te
+    yday_pred_abs = anchors_te + yday_pred_delta
+    yweek_true_abs = anchors_te + yweek_te
+    yweek_pred_abs = anchors_te + yweek_pred_delta
+
+    next_day_metrics = compute_metrics(yday_true_abs, yday_pred_abs)
+    next_week_metrics = compute_metrics(yweek_true_abs, yweek_pred_abs)
+
+    # *** NEW: persistence baseline on the identical test split ***
+    next_day_persistence = compute_persistence_baseline(yday_true_abs, anchors_te)
+    next_week_persistence = compute_persistence_baseline(yweek_true_abs, anchors_te)
 
     metrics = {
         "city": city,
         "state": CITY_TO_STATE[city],
+        "target_type": "delta_from_anchor",  # *** NEW ***
         "n_windows_total": int(len(X)),
         "n_train": int(len(X_tr)),
         "n_val": int(len(X_val)),
@@ -271,51 +237,51 @@ def train_city(
         "test_date_range": [str(dates_te.min())[:10], str(dates_te.max())[:10]],
         "epochs_run": len(history.history["loss"]),
         "train_seconds": train_seconds,
-        "next_day": compute_metrics(yday_te, yday_pred),
-        "next_week": compute_metrics(yweek_te, yweek_pred),
+        "next_day": next_day_metrics,
+        "next_week": next_week_metrics,
+        "next_day_persistence_baseline": next_day_persistence,     # *** NEW ***
+        "next_week_persistence_baseline": next_week_persistence,   # *** NEW ***
+        "next_day_beats_persistence": next_day_metrics["mape_pct"] < next_day_persistence["mape_pct"],   # *** NEW ***
+        "next_week_beats_persistence": next_week_metrics["mape_pct"] < next_week_persistence["mape_pct"], # *** NEW ***
     }
 
     # --- Save artifacts ---
     model.save(city_dir / "model.keras")
     joblib.dump(feature_scaler, city_dir / "feature_scaler.joblib")
-    joblib.dump(day_scaler, city_dir / "next_day_target_scaler.joblib")
-    joblib.dump(week_scaler, city_dir / "next_week_target_scaler.joblib")
+    joblib.dump(day_scaler, city_dir / "next_day_delta_target_scaler.joblib")   # *** RENAMED ***
+    joblib.dump(week_scaler, city_dir / "next_week_delta_target_scaler.joblib") # *** RENAMED ***
     joblib.dump(list(DEFAULT_FEATURE_COLUMNS), city_dir / "feature_columns.joblib")
 
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     with open(RESULTS_DIR / f"{city.lower()}_metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
 
-    # Save the raw loss history too, for later diagnostic plotting — not
-    # plotted here to avoid a hard matplotlib dependency in the training path.
     hist_df = pd.DataFrame(history.history)
     hist_df.to_csv(city_dir / "training_history.csv", index_label="epoch")
 
     print(
-        f"  next_day  -> MAE={metrics['next_day']['mae_mw']} MW, "
-        f"RMSE={metrics['next_day']['rmse_mw']} MW, MAPE={metrics['next_day']['mape_pct']}%"
+        f"  next_day  -> MAE={metrics['next_day']['mae_mw']} MW, RMSE={metrics['next_day']['rmse_mw']} MW, "
+        f"MAPE={metrics['next_day']['mape_pct']}%  |  persistence MAPE={next_day_persistence['mape_pct']}% "
+        f"-> {'BEATS' if metrics['next_day_beats_persistence'] else 'DOES NOT BEAT'} persistence"
     )
     print(
-        f"  next_week -> MAE={metrics['next_week']['mae_mw']} MW, "
-        f"RMSE={metrics['next_week']['rmse_mw']} MW, MAPE={metrics['next_week']['mape_pct']}%"
+        f"  next_week -> MAE={metrics['next_week']['mae_mw']} MW, RMSE={metrics['next_week']['rmse_mw']} MW, "
+        f"MAPE={metrics['next_week']['mape_pct']}%  |  persistence MAPE={next_week_persistence['mape_pct']}% "
+        f"-> {'BEATS' if metrics['next_week_beats_persistence'] else 'DOES NOT BEAT'} persistence"
     )
     print(f"  saved -> {city_dir}")
 
     return metrics
 
 
-# ---------------------------------------------------------------------------
-# CLI / orchestration
-# ---------------------------------------------------------------------------
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--city", type=str, default=None, help="Train a single city (e.g. Delhi). Default: all 8.")
+    parser.add_argument("--city", type=str, default=None)
     parser.add_argument("--epochs", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--lookback", type=int, default=LOOKBACK_DAYS)
-    parser.add_argument("--patience", type=int, default=15, help="EarlyStopping patience on val_loss.")
-    parser.add_argument("--quiet", action="store_true", help="Suppress per-epoch Keras logs.")
+    parser.add_argument("--patience", type=int, default=15)
+    parser.add_argument("--quiet", action="store_true")
     args = parser.parse_args()
 
     cities = [args.city] if args.city else list(CITY_TO_STATE.keys())
@@ -336,9 +302,7 @@ def main() -> None:
                 verbose=0 if args.quiet else 1,
             )
             all_metrics.append(m)
-        except Exception as e:  # noqa: BLE001 — deliberately broad: one city's
-            # failure (e.g. missing weather file) should not abort the whole
-            # multi-city run; it's collected and reported at the end instead.
+        except Exception as e:  # noqa: BLE001
             print(f"  [FAILED] {city}: {e}")
             failures.append({"city": city, "error": str(e)})
 
@@ -356,9 +320,13 @@ def main() -> None:
                 "next_day_mae_mw": m["next_day"]["mae_mw"],
                 "next_day_rmse_mw": m["next_day"]["rmse_mw"],
                 "next_day_mape_pct": m["next_day"]["mape_pct"],
+                "next_day_persistence_mape_pct": m["next_day_persistence_baseline"]["mape_pct"],  # *** NEW ***
+                "next_day_beats_persistence": m["next_day_beats_persistence"],                     # *** NEW ***
                 "next_week_mae_mw": m["next_week"]["mae_mw"],
                 "next_week_rmse_mw": m["next_week"]["rmse_mw"],
                 "next_week_mape_pct": m["next_week"]["mape_pct"],
+                "next_week_persistence_mape_pct": m["next_week_persistence_baseline"]["mape_pct"], # *** NEW ***
+                "next_week_beats_persistence": m["next_week_beats_persistence"],                    # *** NEW ***
             }
             for m in all_metrics
         ]

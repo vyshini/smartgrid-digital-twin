@@ -8,7 +8,7 @@ async def main():
     async with AsyncSessionLocal() as session:
         session.add(User(
             username="admin", email="admin@smartgrid.in",
-            password_hash=hash_password("change-me-immediately"),
+            password_hash=hash_password("admin@123"),
             full_name="System Administrator", role=UserRole.ADMIN,
         ))
         await session.commit()

@@ -22,7 +22,7 @@ from app.core.config import get_settings
 from app.infrastructure.repositories.csv_forecast_data_provider import CSVForecastDataProvider
 from app.ml.feature_engineering import LOOKBACK_DAYS
 from app.ml.interfaces import Forecaster
-from app.ml.lstm_model import LSTMForecaster
+from app.ml.routing_forecaster import RoutingForecaster
 
 
 def _build_data_provider() -> CSVForecastDataProvider:
@@ -56,7 +56,7 @@ def get_forecaster() -> Forecaster:
     every request.
     """
     provider = _build_data_provider()
-    return LSTMForecaster(feature_data_provider=provider, lookback=LOOKBACK_DAYS)
+    return RoutingForecaster(feature_data_provider=provider, lookback=LOOKBACK_DAYS)
 
 
 def get_forecast_use_case() -> ForecastCityLoadUseCase:

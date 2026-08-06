@@ -1,21 +1,14 @@
 """
-Ported from ml-training/scripts/feature_engineering.py. Logic is
-unchanged — same merge, same calendar features, same windowing — but the
-data location is now a constructor/parameter argument instead of a
-hardcoded relative path, since this module now runs as part of a
-deployed backend (working directory is not guaranteed to be
-ml-training/scripts/ anymore).
+Ported from ml-training/scripts/feature_engineering.py — kept in sync
+with that file. *** UPDATED to match the delta-target / cyclical-encoding
+/ extended-lag fixes applied there *** — this backend copy was missed
+when those fixes were first made, causing GBTForecaster to fail with
+"Missing expected feature columns" since the GBT models were trained on
+the updated feature set but this file was still producing the old one.
 
-trainer.py is the only caller of build_supervised_windows here; the
-online prediction path (lstm_model.LSTMForecaster) does NOT use this
-module directly — it receives an already-built DataFrame via its
-feature_data_provider callable (see lstm_model.py's docstring). This
-module produces the OFFLINE, historical-window shape training needs;
-preprocessing.build_prediction_window produces the ONLINE, single-window
-shape prediction needs. Both must agree on feature_cols and lookback, or
-a served model's inputs won't match what it was trained on — trainer.py
-saves feature_cols alongside the model specifically to guard against this
-drifting apart silently (see model_registry.py).
+data_dir stays a constructor/parameter argument (not hardcoded), same as
+before — this backend copy runs with working directory not guaranteed to
+be ml-training/scripts/.
 """
 from __future__ import annotations
 
@@ -28,23 +21,19 @@ FESTIVAL_NAME_KEYWORDS = ["Diwali", "Holi", "Dussehra", "Eid", "Christmas", "Nav
 
 LOOKBACK_DAYS = 14
 
+# *** UPDATED to match ml-training/scripts/feature_engineering.py exactly ***
 DEFAULT_FEATURE_COLUMNS = [
     "total_demand_mw", "residential_mw", "commercial_mw", "industrial_mw",
     "temperature_c", "humidity_pct", "wind_speed_kmph", "solar_irradiance", "precipitation_mm",
-    "day_of_week", "month", "is_weekend", "is_holiday", "is_festival",
-    "total_demand_mw_lag_1", "total_demand_mw_lag_2", "total_demand_mw_lag_3", "total_demand_mw_lag_7",
-    "total_demand_mw_rolling_mean_7", "total_demand_mw_rolling_std_7",
+    "day_of_week_sin", "day_of_week_cos", "month_sin", "month_cos",
+    "is_weekend", "is_holiday", "is_festival",
+    "total_demand_mw_lag_1", "total_demand_mw_lag_2", "total_demand_mw_lag_3",
+    "total_demand_mw_lag_7", "total_demand_mw_lag_14", "total_demand_mw_lag_28",
+    "total_demand_mw_rolling_mean_3", "total_demand_mw_rolling_mean_7", "total_demand_mw_rolling_std_7",
 ]
 
 
 def load_city_dataset(city: str, data_dir: Path) -> pd.DataFrame:
-    """
-    Merges real demand + real weather for one city. `data_dir` must
-    contain `processed/<city>.csv` (build_training_dataset.py output) and
-    `raw/weather_<city>.csv` (fetch_weather.py output) — same file
-    layout as ml-training/data/, just passed in explicitly rather than
-    assumed relative to this file's location.
-    """
     demand_path = data_dir / "processed" / f"{city.lower()}.csv"
     weather_path = data_dir / "raw" / f"weather_{city.lower()}.csv"
 
@@ -65,14 +54,23 @@ def load_city_dataset(city: str, data_dir: Path) -> pd.DataFrame:
 
 
 def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
+    """*** UPDATED: cyclical sin/cos encoding, matching ml-training's fix. ***"""
     import holidays
 
     df = df.copy()
     years = sorted(set(df.index.year))
     in_holidays = holidays.country_holidays("IN", years=years)
 
-    df["day_of_week"] = df.index.dayofweek
-    df["month"] = df.index.month
+    dow = df.index.dayofweek
+    month = df.index.month
+
+    df["day_of_week"] = dow
+    df["month"] = month
+    df["day_of_week_sin"] = np.sin(2 * np.pi * dow / 7)
+    df["day_of_week_cos"] = np.cos(2 * np.pi * dow / 7)
+    df["month_sin"] = np.sin(2 * np.pi * (month - 1) / 12)
+    df["month_cos"] = np.cos(2 * np.pi * (month - 1) / 12)
+
     df["is_weekend"] = (df.index.dayofweek >= 5).astype(int)
     df["is_holiday"] = df.index.to_series().apply(lambda d: d in in_holidays).astype(int)
     df["is_festival"] = df.index.to_series().apply(
@@ -82,9 +80,11 @@ def add_calendar_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_lag_features(df: pd.DataFrame, target_col: str = "total_demand_mw") -> pd.DataFrame:
+    """*** UPDATED: added 14/28-day lags and 3-day rolling mean. ***"""
     df = df.copy()
-    for lag in (1, 2, 3, 7):
+    for lag in (1, 2, 3, 7, 14, 28):
         df[f"{target_col}_lag_{lag}"] = df[target_col].shift(lag)
+    df[f"{target_col}_rolling_mean_3"] = df[target_col].shift(1).rolling(3).mean()
     df[f"{target_col}_rolling_mean_7"] = df[target_col].shift(1).rolling(7).mean()
     df[f"{target_col}_rolling_std_7"] = df[target_col].shift(1).rolling(7).std()
     return df
@@ -95,16 +95,18 @@ def build_supervised_windows(
     feature_cols: list[str],
     target_col: str = "total_demand_mw",
     lookback: int = LOOKBACK_DAYS,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """*** UPDATED: delta targets + anchors, matching ml-training's fix. ***"""
     df = df.dropna(subset=feature_cols + [target_col]).sort_index()
     values = df[feature_cols].to_numpy(dtype=np.float32)
     target = df[target_col].to_numpy(dtype=np.float32)
     dates = df.index.to_numpy()
 
-    X, y_next_day, y_next_week, window_end_dates = [], [], [], []
+    X, y_next_day, y_next_week, anchors, window_end_dates = [], [], [], [], []
     n = len(df)
     for i in range(n - lookback - 7 + 1):
         window = values[i : i + lookback]
+        anchor_idx = i + lookback - 1
         next_day_idx = i + lookback
         next_week_idx = i + lookback + 6
 
@@ -112,15 +114,18 @@ def build_supervised_windows(
         if not _is_contiguous_daily(window_dates):
             continue
 
+        anchor_value = target[anchor_idx]
         X.append(window)
-        y_next_day.append(target[next_day_idx])
-        y_next_week.append(target[next_week_idx])
-        window_end_dates.append(dates[i + lookback - 1])
+        y_next_day.append(target[next_day_idx] - anchor_value)
+        y_next_week.append(target[next_week_idx] - anchor_value)
+        anchors.append(anchor_value)
+        window_end_dates.append(dates[anchor_idx])
 
     return (
         np.array(X),
         np.array(y_next_day),
         np.array(y_next_week),
+        np.array(anchors),
         np.array(window_end_dates),
     )
 

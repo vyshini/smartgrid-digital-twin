@@ -1,0 +1,17 @@
+city,horizon,n_train,n_test,gbt_mae_mw,gbt_rmse_mw,gbt_mape_pct,persistence_mape_pct,beats_persistence,improvement_pct_pts
+Delhi,next_day,2570,551,312.766,433.401,3.532,4.448,True,0.916
+Delhi,next_week,2570,551,762.887,1026.939,8.397,9.264,True,0.867
+Mumbai,next_day,2570,551,77.805,109.692,1.846,2.229,True,0.383
+Mumbai,next_week,2570,551,199.605,270.216,4.784,4.717,False,-0.067
+Pune,next_day,2570,551,27.62,38.806,1.836,2.229,True,0.393
+Pune,next_week,2570,551,71.637,96.678,4.791,4.717,False,-0.074
+Bangalore,next_day,2570,551,68.115,92.832,3.033,4.035,True,1.002
+Bangalore,next_week,2570,551,176.114,232.371,7.851,8.094,True,0.243
+Hyderabad,next_day,2570,551,110.952,153.624,3.894,3.73,False,-0.164
+Hyderabad,next_week,2570,551,288.817,391.463,10.005,10.644,True,0.639
+Chennai,next_day,2570,551,76.491,96.874,3.237,4.077,True,0.84
+Chennai,next_week,2570,551,154.981,191.833,6.563,6.536,False,-0.027
+Kolkata,next_day,2570,551,57.494,81.94,4.412,4.696,True,0.284
+Kolkata,next_week,2570,551,133.295,181.539,9.812,10.214,True,0.402
+Ahmedabad,next_day,2570,551,70.318,131.303,3.336,3.744,True,0.408
+Ahmedabad,next_week,2570,551,179.484,257.668,8.178,7.737,False,-0.441
