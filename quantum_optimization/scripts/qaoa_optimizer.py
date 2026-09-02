@@ -37,6 +37,7 @@ from qiskit_aer.primitives import SamplerV2
 from qiskit_algorithms import QAOA
 from qiskit_algorithms.optimizers import COBYLA
 from qiskit_algorithms.utils import algorithm_globals
+from qiskit.primitives import Sampler
 
 from classical_solver import solve_exact_brute_force, solve_greedy_heuristic
 from generation_capacity import CITY_GENERATION_CAPACITY
@@ -131,9 +132,9 @@ def run_qaoa(
     backend = AerSimulator(method="statevector")
     pass_manager = generate_preset_pass_manager(optimization_level=1, backend=backend)
 
-    sampler = SamplerV2(seed=seed, default_shots=shots)
+    sampler = Sampler(options={"shots": shots, "seed": seed})
     optimizer = COBYLA(maxiter=maxiter)
-    qaoa = QAOA(sampler=sampler, optimizer=optimizer, reps=reps, transpiler=pass_manager)
+    qaoa = QAOA(sampler=sampler, optimizer=optimizer, reps=reps)
 
     eigen_result = qaoa.compute_minimum_eigenvalue(qubit_op)
 

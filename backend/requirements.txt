@@ -27,6 +27,14 @@ joblib==1.4.2
 holidays==0.58
 tensorflow==2.16.2
 
+# --- ML forecasting (GBT) ---
+# REQUIRED: RoutingForecaster routes Delhi, Ahmedabad, Mumbai, Pune, and
+# Bangalore (see ml-training/results/model_routing.json) to GBTForecaster
+# for at least one horizon. Without this package, joblib.load() on a
+# saved LGBMRegressor raises ModuleNotFoundError at prediction time for
+# 5 of 8 cities -- this is not optional tooling, it's a runtime dependency.
+lightgbm==4.5.0
+
 # --- quantum optimization (QAOA) ---
 qiskit==1.2.4
 qiskit-aer==0.15.1

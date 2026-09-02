@@ -1,0 +1,9 @@
+city,qaoa_co2_reduction_pct,classical_co2_reduction_pct,qaoa_cost_reduction_pct,classical_cost_reduction_pct,matched_optimum
+Delhi,98.0,98.0,92.79,92.79,True
+Mumbai,98.0,98.0,75.0,75.0,True
+Pune,98.0,98.0,85.0,85.0,True
+Bangalore,98.0,98.0,95.0,95.0,True
+Hyderabad,98.0,98.0,93.74,95.0,False
+Chennai,98.0,98.0,95.0,95.0,True
+Kolkata,98.0,98.0,76.7,76.7,True
+Ahmedabad,98.0,98.0,90.0,90.0,True
